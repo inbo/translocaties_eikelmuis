@@ -1,0 +1,90 @@
+---
+title: "nestkast_hist_to_app"
+author: "Sander Devisscher"
+date: "2026-02-19"
+output: html_document
+---
+
+```{r libraries}
+library(sf)
+library(tidyverse)
+library(googlesheets4)
+library(testthat)
+```
+
+```{r auth}
+gs4_auth(Sys.getenv("email"))
+```
+
+```{r read raw data}
+nestkast_hist_raw <- read_sheet("16S2cMLTbuIQt8P3yyNshAx4bHUxC_8KNDKUQXmrGM8Q")
+```
+
+```{r read app data}
+dd_nestkast_type <- read_sheet("1_JZRcird23bYOfYZo0cz1M78gTGitJP83-7rAQaax5k",
+                               sheet = "dd_nestkast_type")
+```
+
+```{r mapping: prep}
+nestkast_hist <- nestkast_hist_raw %>% 
+  rename(nestkast_label = nestkast_ID,
+         nestkast_type_beschrijving = ...2,
+         opmerkingen_nestkast_hist = opmerkingen) %>% 
+  left_join(dd_nestkast_type, by = "nestkast_type_beschrijving")
+
+missing_nestkast_types <- nestkast_hist %>% 
+  filter(is.na(nestkast_type_label)) %>% 
+  distinct(nestkast_type_beschrijving)
+
+test_that("Check for missing nestkast types", {
+  
+  # Calculate the number of missing types
+  num_missing <- nrow(missing_nestkast_types)
+  
+  # Create a descriptive string of the missing types to display if the test fails
+  missing_list <- paste(missing_nestkast_types$nestkast_type_beschrijving, collapse = ", ")
+  
+  # The test: we expect num_missing to be 0
+  expect_equal(num_missing, 0, 
+               info = paste("Missing nestkast_type_beschrijving found:", missing_list, 
+               "\n add these to the nestkast types view in the app and rerun"))
+})
+```
+
+```{r mapping: base}
+nestkast_hist_base_int <- nestkast_hist %>% 
+  select(nestkast_label, nestkast_type_id, opmerkingen_nestkast_hist, Lambert_x, Lambert_y) %>% 
+  st_as_sf(coords = c("Lambert_x", "Lambert_y"),
+           crs = fistools::CRS_extracter("bel")) %>% 
+  st_transform(fistools::CRS_extracter("wgs")) %>% 
+  mutate(nestkast_hist_lat = st_coordinates(.)[,2],
+         nestkast_hist_lng = st_coordinates(.)[,1],
+         nestkast_hist_coordinaten = paste(nestkast_hist_lat, nestkast_hist_lng, sep = ", "))
+
+nestkast_hist_base <- nestkast_hist_base_int %>% 
+  st_drop_geometry()
+```
+
+```{r test spatial, eval=FALSE}
+library(leaflet)
+
+leaflet() %>% 
+  addTiles() %>% 
+  addCircles(data = nestkast_hist_base_int)
+```
+
+```{r mapping: plaatsing}
+nestkast_hist_plaatsing <- nestkast_hist %>% 
+  select(nestkast_label, ophangdatum)
+```
+
+```{r mapping: controles}
+nestkast_hist_controles <- nestkast_hist %>% 
+  select(nestkast_label, contains("controle"))
+```
+
+```{r mapping: opruim}
+nestkast_hist_opruim <- nestkast_hist %>% 
+  select(nestkast_label, verwijderdatum)
+```
+
