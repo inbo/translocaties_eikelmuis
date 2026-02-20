@@ -102,6 +102,15 @@ table(nestkast_hist_plaatsing$ophangdatum, nestkast_hist_plaatsing$nestkast_hist
 ```
 
 ```{r mapping: controles}
+# Lijsten enkelvoudige sporen
+vraatsporen <- c("vraatsporen?")
+keutels_onbekend <- c("keutel?", "keutel erop?", "keutels", "keutels erop?")
+keutels_oud <- c("oude keutels", "oude? keutels")
+dier_onbekend <- c("dier")
+nest_onbekend <- c("nest?", "nest??", "nest???", "nest")
+nest_begin <- c("nest(begin)", "nest(begin)?", "nestbegin?", "nestbegin", "nestbegin???", "oud nestbegin?")
+nest_oud <-  c("oud nest", "oud nest???", "oud nest?")
+
 nestkast_hist_controles <- nestkast_hist %>% 
   select(nestkast_label, contains("controle")) %>% 
   pivot_longer(cols = contains("controle"),
@@ -110,7 +119,7 @@ nestkast_hist_controles <- nestkast_hist %>%
                values_transform = as.character) %>% 
   mutate(names = case_when(grepl("datum", names) ~ "nestkast_hist_datumtijd_int",
                            grepl("resultaat", names) ~ "eikelmuis_aanwezig_hist_int",
-                           grepl("bijzonderheden", names) ~ "eikelmuis_spoor_hist",
+                           grepl("bijzonderheden", names) ~ "eikelmuis_spoor_hist_int",
                            TRUE ~ names)) %>% 
   pivot_wider(id_cols = nestkast_label,
               names_from = "names",
@@ -118,18 +127,39 @@ nestkast_hist_controles <- nestkast_hist %>%
               values_fn = list) %>% 
   unnest(cols = c(nestkast_hist_datumtijd_int, 
                   eikelmuis_aanwezig_hist_int, 
-                  eikelmuis_spoor_hist)) %>% 
+                  eikelmuis_spoor_hist_int)) %>% 
   filter(!is.na(nestkast_hist_datumtijd_int) | 
-         !is.na(eikelmuis_aanwezig_hist_int) |
-         !is.na(eikelmuis_spoor_hist)) %>% 
+           !is.na(eikelmuis_aanwezig_hist_int) |
+           !is.na(eikelmuis_spoor_hist_int)) %>% 
   mutate(nestkast_hist_datumtijd = paste(format(as.Date(nestkast_hist_datumtijd_int, "%Y-%m-%d"), "%d-%m-%Y"), "00:00:00")) %>%
   mutate(eikelmuis_aanwezig_hist = case_when(eikelmuis_aanwezig_hist_int %in% c("afwezig", "onzeker (eerder niet)") ~ "FALSE",
                                              eikelmuis_aanwezig_hist_int %in% c("mogelijk", "waarschijnlijk", "zeker") ~ "TRUE",
                                              TRUE ~ eikelmuis_aanwezig_hist_int)) %>% 
-  
+  mutate(eikelmuis_spoor_hist_int = case_when(eikelmuis_spoor_hist_int %in% vraatsporen ~ dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "vraatsporen"],
+                                          eikelmuis_spoor_hist_int %in% keutels_onbekend ~ dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (onbekend)"],
+                                          eikelmuis_spoor_hist_int %in% keutels_oud ~ 
+dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (oud)"],
+                                          eikelmuis_spoor_hist_int %in% dier_onbekend ~ dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "dier (onbekend)"],
+                                          eikelmuis_spoor_hist_int %in% nest_onbekend ~ dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (onbekend)"],
+                                          eikelmuis_spoor_hist_int %in% nest_begin ~ dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (begin)"],
+                                          eikelmuis_spoor_hist_int %in% nest_oud ~
+dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (oud)"],
+                                          TRUE ~ eikelmuis_spoor_hist_int))
+
+nestkast_hist_controles_enkelvoudig_spoor <- nestkast_hist_controles %>% 
+  filter(nchar(eikelmuis_spoor_hist_int) == 8 | is.na(eikelmuis_spoor_hist_int))
+
+nestkast_hist_controles_meervoudige_sporen <- nestkast_hist_controles %>% 
+  filter(nchar(eikelmuis_spoor_hist_int) != 8 & !is.na(eikelmuis_spoor_hist_int))
 
 table(nestkast_hist_controles$eikelmuis_aanwezig_hist_int, 
       nestkast_hist_controles$eikelmuis_aanwezig_hist,
+      useNA = "ifany")
+
+table(nestkast_hist_controles$eikelmuis_spoor_hist_int, 
+      useNA = "ifany")
+
+table(nestkast_hist_controles_enkelvoudig_spoor$eikelmuis_spoor_hist_int, 
       useNA = "ifany")
 ```
 
