@@ -23,13 +23,19 @@ nestkast_hist_raw <- read_sheet("16S2cMLTbuIQt8P3yyNshAx4bHUxC_8KNDKUQXmrGM8Q")
 ```{r read app data}
 dd_nestkast_type <- read_sheet("1_JZRcird23bYOfYZo0cz1M78gTGitJP83-7rAQaax5k",
                                sheet = "dd_nestkast_type")
+
+dd_nestkast_status <- read_sheet("1_JZRcird23bYOfYZo0cz1M78gTGitJP83-7rAQaax5k",
+                                 sheet = "dd_nestkast_status")
+
+dd_eikelmuis_spoor <- read_sheet("1_JZRcird23bYOfYZo0cz1M78gTGitJP83-7rAQaax5k",
+                                 sheet = "dd_eikelmuis_spoor")
 ```
 
 ```{r mapping: prep}
 nestkast_hist <- nestkast_hist_raw %>% 
   rename(nestkast_label = nestkast_ID,
          nestkast_type_beschrijving = ...2,
-         opmerkingen_nestkast_hist = opmerkingen) %>% 
+         nestkast_opmerkingen = opmerkingen) %>% 
   left_join(dd_nestkast_type, by = "nestkast_type_beschrijving")
 
 missing_nestkast_types <- nestkast_hist %>% 
@@ -47,13 +53,18 @@ test_that("Check for missing nestkast types", {
   # The test: we expect num_missing to be 0
   expect_equal(num_missing, 0, 
                info = paste("Missing nestkast_type_beschrijving found:", missing_list, 
-               "\n add these to the nestkast types view in the app and rerun"))
+                            "\n add these to the nestkast types view in the app and rerun"))
 })
 ```
 
-```{r mapping: base}
+```{r mapping: nestkasten}
+nestkasten <- nestkast_hist %>% 
+  select(nestkast_label, nestkast_type_id, nestkast_opmerkingen)
+```
+
+```{r mapping: hist_base}
 nestkast_hist_base_int <- nestkast_hist %>% 
-  select(nestkast_label, nestkast_type_id, opmerkingen_nestkast_hist, Lambert_x, Lambert_y) %>% 
+  select(nestkast_label, Lambert_x, Lambert_y) %>% 
   st_as_sf(coords = c("Lambert_x", "Lambert_y"),
            crs = fistools::CRS_extracter("bel")) %>% 
   st_transform(fistools::CRS_extracter("wgs")) %>% 
@@ -77,12 +88,15 @@ leaflet() %>%
 nestkast_hist_plaatsing <- nestkast_hist %>% 
   mutate(ophangdatum = as.character(ophangdatum)) %>% 
   select(nestkast_label, ophangdatum) %>% 
-  mutate(nestkast_hist_datumtijd = case_when(is.null(ophangdatum) ~ NA,
-                                             ophangdatum == "zomer 2024" ~ "01-07-2024",
-                                             ophangdatum == "2-11/6/25" ~ "06-06-2025",
-                                             ophangdatum == "1760313600" ~ as.character(as.Date.numeric(as.numeric(ophangdatum))),
-                                             TRUE ~ ophangdatum)
-         )
+  mutate(nestkast_hist_datumtijd = case_when(ophangdatum == "NULL" ~ NA,
+                                             ophangdatum == "zomer 2024" ~ "1-7-2024 00:00:00",
+                                             ophangdatum == "2-11/6/25" ~ "6-6-2025 00:00:00",
+                                             ophangdatum %in% c("1760313600", "1764720000") ~ as.character(format(as.POSIXct(as.numeric(ophangdatum), origin = "1970-01-01", tz = "UTC"), "%d-%m-%Y %H:%M:%S")),
+                                             TRUE ~ ophangdatum)) %>% 
+  filter(!is.na(nestkast_hist_datumtijd)) %>% 
+  mutate(eikelmuis_aanwezig_hist = FALSE) %>% 
+  mutate(nestkast_status = dd_nestkast_status$nestkast_status_id[dd_nestkast_status$nestkast_status_label == "Terrein"]) %>% 
+  left_join(nestkast_hist_base, by = "nestkast_label")
 
 table(nestkast_hist_plaatsing$ophangdatum, nestkast_hist_plaatsing$nestkast_hist_datumtijd, useNA = "ifany")
 ```
