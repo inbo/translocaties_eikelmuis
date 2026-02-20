@@ -103,7 +103,34 @@ table(nestkast_hist_plaatsing$ophangdatum, nestkast_hist_plaatsing$nestkast_hist
 
 ```{r mapping: controles}
 nestkast_hist_controles <- nestkast_hist %>% 
-  select(nestkast_label, contains("controle"))
+  select(nestkast_label, contains("controle")) %>% 
+  pivot_longer(cols = contains("controle"),
+               names_to = "names",
+               values_to = "values",
+               values_transform = as.character) %>% 
+  mutate(names = case_when(grepl("datum", names) ~ "nestkast_hist_datumtijd_int",
+                           grepl("resultaat", names) ~ "eikelmuis_aanwezig_hist_int",
+                           grepl("bijzonderheden", names) ~ "eikelmuis_spoor_hist",
+                           TRUE ~ names)) %>% 
+  pivot_wider(id_cols = nestkast_label,
+              names_from = "names",
+              values_from = "values",
+              values_fn = list) %>% 
+  unnest(cols = c(nestkast_hist_datumtijd_int, 
+                  eikelmuis_aanwezig_hist_int, 
+                  eikelmuis_spoor_hist)) %>% 
+  filter(!is.na(nestkast_hist_datumtijd_int) | 
+         !is.na(eikelmuis_aanwezig_hist_int) |
+         !is.na(eikelmuis_spoor_hist)) %>% 
+  mutate(nestkast_hist_datumtijd = paste(format(as.Date(nestkast_hist_datumtijd_int, "%Y-%m-%d"), "%d-%m-%Y"), "00:00:00")) %>%
+  mutate(eikelmuis_aanwezig_hist = case_when(eikelmuis_aanwezig_hist_int %in% c("afwezig", "onzeker (eerder niet)") ~ "FALSE",
+                                             eikelmuis_aanwezig_hist_int %in% c("mogelijk", "waarschijnlijk", "zeker") ~ "TRUE",
+                                             TRUE ~ eikelmuis_aanwezig_hist_int)) %>% 
+  
+
+table(nestkast_hist_controles$eikelmuis_aanwezig_hist_int, 
+      nestkast_hist_controles$eikelmuis_aanwezig_hist,
+      useNA = "ifany")
 ```
 
 ```{r mapping: opruim}
