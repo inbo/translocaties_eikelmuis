@@ -147,10 +147,25 @@ dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label =
                                           TRUE ~ eikelmuis_spoor_hist_int))
 
 nestkast_hist_controles_enkelvoudig_spoor <- nestkast_hist_controles %>% 
-  filter(nchar(eikelmuis_spoor_hist_int) == 8 | is.na(eikelmuis_spoor_hist_int))
+  filter(nchar(eikelmuis_spoor_hist_int) == 8 | is.na(eikelmuis_spoor_hist_int)) %>% 
+  mutate(eikelmuis_spoor_hist = eikelmuis_spoor_hist_int)
+
+# Lijsten meervoudige sporen
 
 nestkast_hist_controles_meervoudige_sporen <- nestkast_hist_controles %>% 
-  filter(nchar(eikelmuis_spoor_hist_int) != 8 & !is.na(eikelmuis_spoor_hist_int))
+  filter(nchar(eikelmuis_spoor_hist_int) != 8 & !is.na(eikelmuis_spoor_hist_int)) %>% 
+  separate_wider_delim(cols = eikelmuis_spoor_hist_int,
+                       delim = "+",
+                       names = c("eikelmuis_spoor_hist_int1", 
+                                 "eikelmuis_spoor_hist_int2", 
+                                 "eikelmuis_spoor_hist_int3",
+                                 "eikelmuis_spoor_hist_int4",
+                                 "eikelmuis_spoor_hist_int5"),
+                       too_few = "align_start") %>% 
+  mutate(eikelmuis_spoor_hist_int1 = trimws(eikelmuis_spoor_hist_int1))
+
+nestkast_hist_controles_meervoudige_sporen_1 <- nestkast_hist_controles_meervoudige_sporen %>% 
+  filter(!is.na(eikelmuis_spoor_hist_int1) & !is.na(eikelmuis_spoor_hist_int2) & eikelmuis_spoor_hist_int1 != "oud" & eikelmuis_spoor_hist_int1 != "oud (" & eikelmuis_spoor_hist_int1 != "oud???")
 
 table(nestkast_hist_controles$eikelmuis_aanwezig_hist_int, 
       nestkast_hist_controles$eikelmuis_aanwezig_hist,
@@ -160,6 +175,9 @@ table(nestkast_hist_controles$eikelmuis_spoor_hist_int,
       useNA = "ifany")
 
 table(nestkast_hist_controles_enkelvoudig_spoor$eikelmuis_spoor_hist_int, 
+      useNA = "ifany")
+
+table(nestkast_hist_controles_meervoudige_sporen$eikelmuis_spoor_hist_int, 
       useNA = "ifany")
 ```
 
