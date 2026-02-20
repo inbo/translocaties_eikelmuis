@@ -75,7 +75,16 @@ leaflet() %>%
 
 ```{r mapping: plaatsing}
 nestkast_hist_plaatsing <- nestkast_hist %>% 
-  select(nestkast_label, ophangdatum)
+  mutate(ophangdatum = as.character(ophangdatum)) %>% 
+  select(nestkast_label, ophangdatum) %>% 
+  mutate(nestkast_hist_datumtijd = case_when(is.null(ophangdatum) ~ NA,
+                                             ophangdatum == "zomer 2024" ~ "01-07-2024",
+                                             ophangdatum == "2-11/6/25" ~ "06-06-2025",
+                                             ophangdatum == "1760313600" ~ as.character(as.Date.numeric(as.numeric(ophangdatum))),
+                                             TRUE ~ ophangdatum)
+         )
+
+table(nestkast_hist_plaatsing$ophangdatum, nestkast_hist_plaatsing$nestkast_hist_datumtijd, useNA = "ifany")
 ```
 
 ```{r mapping: controles}
