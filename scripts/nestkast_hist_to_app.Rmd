@@ -9,6 +9,7 @@ output: html_document
 library(sf)
 library(tidyverse)
 library(googlesheets4)
+library(googledrive)
 library(testthat)
 ```
 
@@ -96,9 +97,10 @@ nestkast_hist_plaatsing <- nestkast_hist %>%
   filter(!is.na(nestkast_hist_datumtijd)) %>% 
   mutate(eikelmuis_aanwezig_hist = FALSE) %>% 
   mutate(nestkast_status = dd_nestkast_status$nestkast_status_id[dd_nestkast_status$nestkast_status_label == "Terrein"]) %>% 
-  left_join(nestkast_hist_base, by = "nestkast_label")
+  left_join(nestkast_hist_base, by = "nestkast_label") %>% 
+  select(-ophangdatum)
 
-table(nestkast_hist_plaatsing$ophangdatum, nestkast_hist_plaatsing$nestkast_hist_datumtijd, useNA = "ifany")
+#table(nestkast_hist_plaatsing$ophangdatum, nestkast_hist_plaatsing$nestkast_hist_datumtijd, useNA = "ifany")
 ```
 
 ```{r mapping: controles}
@@ -132,9 +134,9 @@ nestkast_hist_controles <- nestkast_hist %>%
            !is.na(eikelmuis_aanwezig_hist_int) |
            !is.na(eikelmuis_spoor_hist_int)) %>% 
   mutate(nestkast_hist_datumtijd = paste(format(as.Date(nestkast_hist_datumtijd_int, "%Y-%m-%d"), "%d-%m-%Y"), "00:00:00")) %>%
-  mutate(eikelmuis_aanwezig_hist = case_when(eikelmuis_aanwezig_hist_int %in% c("afwezig", "onzeker (eerder niet)") ~ "FALSE",
-                                             eikelmuis_aanwezig_hist_int %in% c("mogelijk", "waarschijnlijk", "zeker") ~ "TRUE",
-                                             TRUE ~ eikelmuis_aanwezig_hist_int)) %>% 
+  mutate(eikelmuis_aanwezig_hist = case_when(eikelmuis_aanwezig_hist_int %in% c("afwezig", "onzeker (eerder niet)") ~ FALSE,
+                                             eikelmuis_aanwezig_hist_int %in% c("mogelijk", "waarschijnlijk", "zeker") ~ TRUE,
+                                             TRUE ~ NA)) %>% 
   mutate(eikelmuis_spoor_hist_int = case_when(eikelmuis_spoor_hist_int %in% vraatsporen ~ dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "vraatsporen"],
                                               eikelmuis_spoor_hist_int %in% keutels_onbekend ~ dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (onbekend)"],
                                               eikelmuis_spoor_hist_int %in% keutels_oud ~ 
@@ -145,6 +147,9 @@ nestkast_hist_controles <- nestkast_hist %>%
                                               eikelmuis_spoor_hist_int %in% nest_oud ~
                                                 dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (oud)"],
                                               TRUE ~ eikelmuis_spoor_hist_int))
+
+missing_eikelmuis_aanwezig_hist <- nestkast_hist_controles %>% 
+  filter(is.na(eikelmuis_aanwezig_hist) & !is.na(eikelmuis_aanwezig_hist_int))
 
 nestkast_hist_controles_enkelvoudig_spoor <- nestkast_hist_controles %>% 
   filter(nchar(eikelmuis_spoor_hist_int) == 8 | is.na(eikelmuis_spoor_hist_int)) %>% 
@@ -322,7 +327,13 @@ if(nrow(eikelmuis_spoor_hist_missing) >= nrow(nestkast_hist_controles_meervoudig
 
 nestkast_hist_controles_finaal <- rbind(nestkast_hist_controles_enkelvoudig_spoor, 
                                         nestkast_hist_controles_meervoudige_sporen) %>% 
-  left_join(nestkast_hist_base, by = "nestkast_label")
+  mutate(nestkast_status = dd_nestkast_status$nestkast_status_id[dd_nestkast_status$nestkast_status_label == "Terrein"]) %>% 
+  left_join(nestkast_hist_base, by = "nestkast_label") %>% 
+  select(-nestkast_hist_datumtijd_int,
+         -eikelmuis_aanwezig_hist_int,
+         -eikelmuis_spoor_hist_int)
+
+fistools::colcompare(nestkast_hist_controles_finaal, nestkast_hist_plaatsing)
 ```
 
 ```{r mapping: opruim}
