@@ -37,8 +37,8 @@ dd_eikelmuis_spoor <- read_sheet("1_JZRcird23bYOfYZo0cz1M78gTGitJP83-7rAQaax5k",
 
 ```{r mapping: prep}
 nestkast_hist <- nestkast_hist_raw %>% 
-  rename(nestkast_label = nestkast_ID,
-         nestkast_type_beschrijving = ...2,
+  mutate(nestkast_label = as.character(nestkast_ID)) %>% 
+  rename(nestkast_type_beschrijving = ...2,
          nestkast_opmerkingen = opmerkingen) %>% 
   left_join(dd_nestkast_type, by = "nestkast_type_beschrijving")
 
