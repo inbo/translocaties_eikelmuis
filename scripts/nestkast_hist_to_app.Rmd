@@ -342,5 +342,16 @@ nestkast_hist_opruim <- nestkast_hist %>%
 fistools::colcompare(nestkast_hist_opruim, nestkast_hist_plaatsing)
 ```
 
+```{r combine & export}
+export_fn <- paste0(tempdir(), "\\nestkast_hist_combined.csv")
+
+nestkast_hist_combined <- bind_rows(nestkast_hist_plaatsing,
+                                    nestkast_hist_controles_finaal,
+                                    nestkast_hist_opruim) %>% 
+  write_csv(export_fn) 
+  
+
+drive_put(export_fn,
+                       path = as_id("1mK1_WzMRopk-2fyimhYt5zFfufApJL5t"))
 ```
 
