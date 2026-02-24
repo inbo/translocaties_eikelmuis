@@ -375,6 +375,24 @@ drive_put(export_fn,
 ```
 
 ```{r select 1 random nestkast to test upload}
+selectie <- sample(nestkasten$nestkast_label, size = 1)[[1]]
 
+export_fn <- paste0(tempdir(), "\\test_nestkast.csv")
+
+test_nestkast <- nestkasten %>% 
+  filter(nestkast_label == selectie) %>% 
+  write_csv(export_fn)
+
+drive_put(export_fn,
+          path = as_id(google_drive_folder))
+
+export_fn <- paste0(tempdir(), "\\test_nestkast_hist.csv")
+
+test_nestkast_hist <- nestkast_hist_combined %>% 
+  filter(nestkast_label == selectie) %>% 
+  write_csv(export_fn)
+
+drive_put(export_fn,
+          path = as_id(google_drive_folder))
 ```
 
