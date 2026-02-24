@@ -327,6 +327,20 @@ nestkast_hist_controles_finaal <- rbind(nestkast_hist_controles_enkelvoudig_spoo
 
 ```{r mapping: opruim}
 nestkast_hist_opruim <- nestkast_hist %>% 
-  select(nestkast_label, verwijderdatum)
+  select(nestkast_label, verwijderdatum) %>% 
+  filter(!is.na(verwijderdatum)) %>% 
+  mutate(nestkast_hist_datumtijd = paste(format(as.Date(verwijderdatum, "%Y-%m-%d"), "%d-%m-%Y"), "00:00:00")) %>% 
+  mutate(nestkast_status = dd_nestkast_status$nestkast_status_id[dd_nestkast_status$nestkast_status_label == "Stock"]) %>% 
+  mutate(eikelmuis_aanwezig_hist = FALSE) %>% 
+  mutate(nestkast_hist_lat = "00.000000",
+         nestkast_hist_lng = "00.000000",
+         nestkast_hist_coordinaten = paste(nestkast_hist_lat, nestkast_hist_lng, sep = ", ")) %>% 
+  mutate(nestkast_hist_lat = as.numeric(nestkast_hist_lat),
+         nestkast_hist_lng = as.numeric(nestkast_hist_lng)) %>% 
+  select(-verwijderdatum)
+
+fistools::colcompare(nestkast_hist_opruim, nestkast_hist_plaatsing)
+```
+
 ```
 
