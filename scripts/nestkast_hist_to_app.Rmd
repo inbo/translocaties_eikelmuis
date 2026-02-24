@@ -15,6 +15,9 @@ library(testthat)
 
 ```{r auth}
 gs4_auth(Sys.getenv("email"))
+drive_auth(Sys.getenv("email"))
+
+google_drive_folder <- "1mK1_WzMRopk-2fyimhYt5zFfufApJL5t"
 ```
 
 ```{r read raw data}
@@ -59,8 +62,14 @@ test_that("Check for missing nestkast types", {
 ```
 
 ```{r mapping: nestkasten}
+export_fn <- paste0(tempdir(), "\\nestkasten.csv")
+
 nestkasten <- nestkast_hist %>% 
-  select(nestkast_label, nestkast_type_id, nestkast_opmerkingen)
+  select(nestkast_label, nestkast_type_id, nestkast_opmerkingen) %>% 
+  write_csv(export_fn)
+
+drive_put(export_fn,
+          as_id(google_drive_folder))
 ```
 
 ```{r mapping: hist_base}
@@ -362,6 +371,10 @@ nestkast_hist_combined <- bind_rows(nestkast_hist_plaatsing,
   write_csv(export_fn) 
 
 drive_put(export_fn,
-          path = as_id("1mK1_WzMRopk-2fyimhYt5zFfufApJL5t"))
+          path = as_id(google_drive_folder))
+```
+
+```{r select 1 random nestkast to test upload}
+
 ```
 
