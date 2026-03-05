@@ -349,6 +349,11 @@ nestkast_hist_controles_finaal <- rbind(nestkast_hist_controles_enkelvoudig_spoo
          -eikelmuis_aanwezig_hist_int,
          -eikelmuis_spoor_hist_int)
 
+test_that("Check nestkast_hist_controles_finaal has not de/in-flated", {
+  expect_equal(nrow(nestkast_hist_controles_finaal), 
+               nrow(nestkast_hist_controles))
+})
+
 fistools::colcompare(nestkast_hist_controles_finaal, nestkast_hist_plaatsing)
 ```
 
