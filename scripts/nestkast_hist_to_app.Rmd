@@ -112,7 +112,7 @@ nestkast_hist_plaatsing <- nestkast_hist %>%
 #table(nestkast_hist_plaatsing$ophangdatum, nestkast_hist_plaatsing$nestkast_hist_datumtijd, useNA = "ifany")
 ```
 
-```{r mapping: controles}
+```{r mapping: controles enkelvoudig}
 # create mapping table enkelvoudige sporen
 knaagsporen <- c("vraatsporen?")
 nestmateriaal_onzeker <- c("nest?", "nest??", "nest???", "nest(begin)?", "nestbegin?", "nestbegin???", "oud nestbegin?",  "oud nest???", "oud nest?")
@@ -167,17 +167,83 @@ missing_eikelmuis_aanwezig_hist <- nestkast_hist_controles %>%
 nestkast_hist_controles_enkelvoudig_spoor <- nestkast_hist_controles %>% 
   filter(nchar(eikelmuis_spoor_hist) == 8) 
 
-# Lijsten meervoudige sporen
+```
+
+```{r FUN: create_sporen_mapping}
+create_sporen_mapping <- function(config_list) {
+  # Map over each element in the list to create individual data frames
+  list_of_dfs <- lapply(config_list, function(item) {
+    data.frame(
+      spoor = item$values,
+      eikelmuis_spoor_label1 = if(is.null(item$label1)) NA else item$label1,
+      eikelmuis_spoor_label2 = if(is.null(item$label2)) NA else item$label2,
+      eikelmuis_spoor_label3 = if(is.null(item$label3)) NA else item$label3,
+      stringsAsFactors = FALSE
+    )
+  })
+  
+  # Combine all small data frames into one big mapping table
+  do.call(rbind, list_of_dfs)
+}
+```
+
+```{r mapping: controles meervoudig}
+sporen_config <- list(
+  andere_uitwerpselen = list(
+    label1 = "ander eikelmuis spoor",
+    label2 = "uitwerpselen",
+    label3 = NA,
+    values = c("dier (+ keutel?)")
+  ),
+  ander_nestmateriaalZeker = list(
+    label1 = "ander eikelmuis spoor",
+    label2 = "nestmateriaal (zeker)",
+    label3 = NA,
+    values = c("dier + nest", "dier(en) + nest", "nest + dier(en)", 
+               "nest (+ dieren???)", "nest + dier", "nest + dier(en)", 
+               "dieren + nest", "nest + dieren")
+  ),
+  andere_uitwerpselen_knaagsporen = list(
+    label1 = "ander eikelmuis spoor",
+    label2 = "uitwerpselen",
+    label3 = "knaagsporen",
+    values = c("dier + keutels + vraatsporen")
+  ),
+  andere_nestmateriaalZeker_uitwerpselen = list(
+    label1 = "ander eikelmuis spoor",
+    label2 = "uitwerpselen",
+    label3 = "nestmateriaal (zeker)",
+    values = c("dier + nest + keutels", "nest + dier(en) + keutels", 
+               "nest + dieren + keutels", "nest + keutels (+ dieren???)")
+  ),
+  uitwerpselen_nestmateriaalZeker = list(
+    label1 = "uitwerpselen",
+    label2 = "nestmateriaal (zeker)",
+    label3 = NA,
+    values = c("keutels (+ nestbegin)", "keutels + nestbegin", 
+               "nest + keutel(s)", "nest + keutels")
+  ),
+  andere_nestmateriaalOnzeker = list(
+    label1 = "ander eikelmuis spoor",
+    label2 = "nestmateriaal (onzeker)",
+    label3 = NA,
+    values = c("nest? (+ dieren???)")
+  )
+)
+
+mapping_table <- create_sporen_mapping(sporen_config)
+  
 
 nestkast_hist_controles_meervoudige_sporen <- nestkast_hist_controles %>% 
-  filter(nchar(eikelmuis_spoor_hist_int) != 8 & !is.na(eikelmuis_spoor_hist_int)) %>% 
-  mutate(
-    eikelmuis_spoor_hist_int = gsub("\\?", "", eikelmuis_spoor_hist_int),
-    eikelmuis_spoor_hist_int = gsub("\\+", "", eikelmuis_spoor_hist_int),
-    eikelmuis_spoor_hist_int = gsub("\\(", "", eikelmuis_spoor_hist_int),
-    eikelmuis_spoor_hist_int = gsub("\\)", "", eikelmuis_spoor_hist_int),
-    eikelmuis_spoor_hist_int = gsub(" ", "", eikelmuis_spoor_hist_int)
-  ) %>% 
+  filter(is.na(eikelmuis_spoor_hist)) 
+
+table(nestkast_hist_controles_meervoudige_sporen %>% 
+        filter(!eikelmuis_spoor_hist_int %in% mapping_table$spoor) %>% 
+        pull(eikelmuis_spoor_hist_int), useNA = "ifany")
+
+
+
+%>% 
   mutate(eikelmuis_spoor_hist = case_when(
     eikelmuis_spoor_hist_int %in% c("dierennest", "diernest", "nestdier", "nestdieren") ~ 
       paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "dier (onbekend)"],
