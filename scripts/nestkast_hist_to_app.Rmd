@@ -113,14 +113,25 @@ nestkast_hist_plaatsing <- nestkast_hist %>%
 ```
 
 ```{r mapping: controles}
-# Lijsten enkelvoudige sporen
-vraatsporen <- c("vraatsporen?")
-keutels_onbekend <- c("keutel?", "keutel erop?", "keutels", "keutels erop?")
-keutels_oud <- c("oude keutels", "oude? keutels")
-dier_onbekend <- c("dier")
-nest_onbekend <- c("nest?", "nest??", "nest???", "nest")
-nest_begin <- c("nest(begin)", "nest(begin)?", "nestbegin?", "nestbegin", "nestbegin???", "oud nestbegin?")
-nest_oud <-  c("oud nest", "oud nest???", "oud nest?")
+# create mapping table enkelvoudige sporen
+knaagsporen <- c("vraatsporen?")
+nestmateriaal_onzeker <- c("nest?", "nest??", "nest???", "nest(begin)?", "nestbegin?", "nestbegin???", "oud nestbegin?",  "oud nest???", "oud nest?")
+nestmateriaal_zeker <- c("nest(begin)", "nestbegin", "oud nest", "nest")
+uitwerpselen <- c("keutel?", "keutel erop?", "keutels", "keutels erop?", "oude keutels", "oude? keutels")
+andere <- c("dier")
+
+mapping_table <- data.frame(
+  spoor = c(knaagsporen, nestmateriaal_onzeker, nestmateriaal_zeker, uitwerpselen, andere), # etc
+  eikelmuis_spoor_label = c(rep("knaagsporen", length(knaagsporen)), 
+                           rep("nestmateriaal (onzeker)", length(nestmateriaal_onzeker)),
+                           rep("nestmateriaal (zeker)", length(nestmateriaal_zeker)),
+                           rep("uitwerpselen", length(uitwerpselen)),
+                           rep("ander eikelmuis spoor", length(andere)))
+) %>% 
+  add_row(spoor = NA_character_,
+          eikelmuis_spoor_label = "afwezig") %>% 
+  left_join(dd_eikelmuis_spoor) %>% 
+  select(spoor, eikelmuis_spoor_hist = eikelmuis_spoor_id)
 
 nestkast_hist_controles <- nestkast_hist %>% 
   select(nestkast_label, contains("controle")) %>% 
@@ -140,29 +151,21 @@ nestkast_hist_controles <- nestkast_hist %>%
                   eikelmuis_aanwezig_hist_int, 
                   eikelmuis_spoor_hist_int)) %>% 
   filter(!is.na(nestkast_hist_datumtijd_int) | 
-           !is.na(eikelmuis_aanwezig_hist_int) |
-           !is.na(eikelmuis_spoor_hist_int)) %>% 
+           !is.na(eikelmuis_aanwezig_hist_int)) %>% 
   mutate(nestkast_hist_datumtijd = paste(format(as.Date(nestkast_hist_datumtijd_int, "%Y-%m-%d"), "%d-%m-%Y"), "00:00:00")) %>%
-  mutate(eikelmuis_aanwezig_hist = case_when(eikelmuis_aanwezig_hist_int %in% c("afwezig", "onzeker (eerder niet)") ~ FALSE,
+  mutate(eikelmuis_aanwezig_hist = case_when(eikelmuis_aanwezig_hist_int %in% c("afwezig") ~ FALSE,
+                                             eikelmuis_aanwezig_hist_int %in% c("onzeker (eerder niet)", "mogelijk") ~ NA,
                                              eikelmuis_aanwezig_hist_int %in% c("mogelijk", "waarschijnlijk", "zeker") ~ TRUE,
                                              TRUE ~ NA)) %>% 
-  mutate(eikelmuis_spoor_hist_int = case_when(eikelmuis_spoor_hist_int %in% vraatsporen ~ dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "vraatsporen"],
-                                              eikelmuis_spoor_hist_int %in% keutels_onbekend ~ dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (onbekend)"],
-                                              eikelmuis_spoor_hist_int %in% keutels_oud ~ 
-                                                dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (oud)"],
-                                              eikelmuis_spoor_hist_int %in% dier_onbekend ~ dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "dier (onbekend)"],
-                                              eikelmuis_spoor_hist_int %in% nest_onbekend ~ dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (onbekend)"],
-                                              eikelmuis_spoor_hist_int %in% nest_begin ~ dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (begin)"],
-                                              eikelmuis_spoor_hist_int %in% nest_oud ~
-                                                dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (oud)"],
-                                              TRUE ~ eikelmuis_spoor_hist_int))
+  tidylog::left_join(mapping_table, by = c("eikelmuis_spoor_hist_int" = "spoor")) %>% 
+  mutate(opmerkingen_nestkast_hist = case_when(eikelmuis_spoor_hist == "9d5b34f1" ~ eikelmuis_spoor_hist_int,
+                                               TRUE ~ NA_character_))
 
 missing_eikelmuis_aanwezig_hist <- nestkast_hist_controles %>% 
   filter(is.na(eikelmuis_aanwezig_hist) & !is.na(eikelmuis_aanwezig_hist_int))
 
 nestkast_hist_controles_enkelvoudig_spoor <- nestkast_hist_controles %>% 
-  filter(nchar(eikelmuis_spoor_hist_int) == 8 | is.na(eikelmuis_spoor_hist_int)) %>% 
-  mutate(eikelmuis_spoor_hist = eikelmuis_spoor_hist_int)
+  filter(nchar(eikelmuis_spoor_hist) == 8) 
 
 # Lijsten meervoudige sporen
 
