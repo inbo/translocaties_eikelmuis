@@ -115,18 +115,28 @@ nestkast_hist_plaatsing <- nestkast_hist %>%
 ```{r mapping: controles enkelvoudig}
 # create mapping table enkelvoudige sporen
 knaagsporen <- c("vraatsporen?")
-nestmateriaal_onzeker <- c("nest?", "nest??", "nest???", "nest(begin)?", "nestbegin?", "nestbegin???", "oud nestbegin?",  "oud nest???", "oud nest?")
-nestmateriaal_zeker <- c("nest(begin)", "nestbegin", "oud nest", "nest")
-uitwerpselen <- c("keutel?", "keutel erop?", "keutels", "keutels erop?", "oude keutels", "oude? keutels")
+nestmateriaal_onzeker <- c("nest?", "nest??", "nest???", "nest(begin)?", 
+                           "nestbegin?", "nestbegin???", "oud nestbegin?",  
+                           "oud nest???", "oud nest?", "oud??? + vers? nest",
+                           "oud + vers nestbegin?", "oud + vers nest???",
+                           "oud + vers nest?", "oud (+ vers???) nestbegin?",
+                           "oud (+ vers???) nest?", "oud (+ vers?) nest?",
+                           "oud (+ vers???) nest", "oud (+ vers?) nest",
+                           "oud (+ vers) nest?")
+nestmateriaal_zeker <- c("nest(begin)", "nestbegin", "oud nest", "nest", 
+                         "oud nestbegin + vers nest", "oud + vers nest")
+uitwerpselen <- c("keutel?", "keutel erop?", "keutels", "keutels erop?", 
+                  "oude keutels", "oude? keutels", "oude + verse keutels", 
+                  "oude (+ verse???) keutels")
 andere <- c("dier")
 
 mapping_table <- data.frame(
   spoor = c(knaagsporen, nestmateriaal_onzeker, nestmateriaal_zeker, uitwerpselen, andere), # etc
   eikelmuis_spoor_label = c(rep("knaagsporen", length(knaagsporen)), 
-                           rep("nestmateriaal (onzeker)", length(nestmateriaal_onzeker)),
-                           rep("nestmateriaal (zeker)", length(nestmateriaal_zeker)),
-                           rep("uitwerpselen", length(uitwerpselen)),
-                           rep("ander eikelmuis spoor", length(andere)))
+                            rep("nestmateriaal (onzeker)", length(nestmateriaal_onzeker)),
+                            rep("nestmateriaal (zeker)", length(nestmateriaal_zeker)),
+                            rep("uitwerpselen", length(uitwerpselen)),
+                            rep("ander eikelmuis spoor", length(andere)))
 ) %>% 
   add_row(spoor = NA_character_,
           eikelmuis_spoor_label = "afwezig") %>% 
@@ -199,9 +209,10 @@ sporen_config <- list(
     label1 = "ander eikelmuis spoor",
     label2 = "nestmateriaal (zeker)",
     label3 = NA,
-    values = c("dier + nest", "dier(en) + nest", "nest + dier(en)", 
+    values = c("dier + nest", "dier(en) + nest", 
                "nest (+ dieren???)", "nest + dier", "nest + dier(en)", 
-               "dieren + nest", "nest + dieren")
+               "dieren + nest", "nest + dieren", "oud + vers nest + dieren",
+               "oud + vers nest + dier(en)", "oud + vers nest + dier")
   ),
   andere_uitwerpselen_knaagsporen = list(
     label1 = "ander eikelmuis spoor",
@@ -214,192 +225,119 @@ sporen_config <- list(
     label2 = "uitwerpselen",
     label3 = "nestmateriaal (zeker)",
     values = c("dier + nest + keutels", "nest + dier(en) + keutels", 
-               "nest + dieren + keutels", "nest + keutels (+ dieren???)")
+               "nest + dieren + keutels", "nest + keutels (+ dieren???)",
+               "oud + vers nest + oude + verse keutels + dier(en)",
+               "oud + vers nest + dier(en) + oude + verse keutels")
+  ),
+  andere_nestmateriaalZeker_knaagsporen = list(
+    label1 = "ander eikelmuis spoor",
+    label2 = "nestmateriaal (zeker)",
+    label3 = "knaagsporen",
+    values = c("oud + vers nest + dier(en) + vraatsporen")
   ),
   uitwerpselen_nestmateriaalZeker = list(
     label1 = "uitwerpselen",
     label2 = "nestmateriaal (zeker)",
     label3 = NA,
     values = c("keutels (+ nestbegin)", "keutels + nestbegin", 
-               "nest + keutel(s)", "nest + keutels")
+               "nest + keutel(s)", "nest + keutels", 
+               "oud nestbegin + oude keutels", "oud nest + oude keutels",
+               "oud nest + verse keutels", "oud nest + oude + verse keutels",
+               "oud + vers nest, oude + verse keutels", "nestbegin (+ keutels?)",
+               "oud + vers nest, oude (+ verse?) keutels",
+               "oud + vers nest, keutels???", "nestbegin + keutels",
+               "oud + vers nest + oude + verse keutels",
+               "oud + vers nest + oude (+ verse???) keutels",
+               "oud + vers nest + oude (+ verse?) keutels",
+               "oud + vers nest + keutels", "oud + vers nest + keutel"
+    )
+  ),
+  uitwerpselen_nestmateriaalOnzeker = list(
+    label1 = "uitwerpselen",
+    label2 = "nestmateriaal (onzeker)",
+    label3 = NA,
+    values = c("oud (+ vers???) nest + oude keutels", "nest? + keutels?",
+               "oud (+ vers???) nest + oude (+ verse???) keutels",
+               "oud (+ vers?) nestbegin, oude keutels", "nest??? keutels???",
+               "oud (+ vers?) nest, oude (+ verse?) keutels", "nest? + keutel?", 
+               "oud (+ vers?) nest + oude (+ verse?) keutels",
+               "oud (+ vers?) nest + keutels?", "oud (+ vers?) nest + keutels"
+    )
   ),
   andere_nestmateriaalOnzeker = list(
     label1 = "ander eikelmuis spoor",
     label2 = "nestmateriaal (onzeker)",
     label3 = NA,
-    values = c("nest? (+ dieren???)")
+    values = c("nest? (+ dieren???)", "oud (+ vers?) nest + dieren", 
+               "nestbegin? voedselvoorraad?")
+  ),
+  knaagsporen_nestmateriaalOnzeker = list(
+    label1 = "knaagsporen",
+    label2 = "nestmateriaal (onzeker)",
+    label3 = NA,
+    values = c("vraatsporen??? + nestbegin???", "oud nestbegin? vraatsporen?", 
+               "oud + vers nest? vraatsporen?", "nestbegin??? vraatsporen???",
+               "oud (+ vers?) nest + vraatsporen?", "nestbegin? vraatsporen?",
+               "nest? vraatsporen?", "nest? vraatresten?")
+  ),
+  knaagsporen_uitwerpselen = list(
+    label1 = "knaagsporen",
+    label2 = "uitwerpselen",
+    label3 = NA,
+    values = c("vraatsporen + keutels")
+  ),
+  knaagsporen_nestmateriaalOnzeker_uitwerpselen = list(
+    label1 = "knaagsporen",
+    label2 = "nestmateriaal (onzeker)",
+    label3 = "uitwerpselen",
+    values = c("oud nestbegin? oude vraatresten? oude keutels???",
+               "nestbegin? vraatresten? keutels???", 
+               "nestbegin? + vraatresten? + keutels?",
+               "nest??? + keutels??? + vraatsporen???",
+               "nest? keutels??? vraatsporen???")
   )
 )
 
-mapping_table <- create_sporen_mapping(sporen_config)
-  
+mapping_table <- create_sporen_mapping(sporen_config) %>% 
+  mutate(opmerkingen_nestkast_hist = case_when(eikelmuis_spoor_label1 == "ander eikelmuis spoor" ~ spoor,
+                                               TRUE ~ NA_character_)) %>% 
+  left_join(dd_eikelmuis_spoor %>% 
+              select(eikelmuis_spoor_id_1 = eikelmuis_spoor_id,
+                     eikelmuis_spoor_label), 
+            by = c("eikelmuis_spoor_label1" = "eikelmuis_spoor_label")) %>% 
+  left_join(dd_eikelmuis_spoor %>% 
+              select(eikelmuis_spoor_id_2 = eikelmuis_spoor_id,
+                     eikelmuis_spoor_label), 
+            by = c("eikelmuis_spoor_label2" = "eikelmuis_spoor_label")) %>% 
+  left_join(dd_eikelmuis_spoor %>% 
+              select(eikelmuis_spoor_id_3 = eikelmuis_spoor_id,
+                     eikelmuis_spoor_label), 
+            by = c("eikelmuis_spoor_label3" = "eikelmuis_spoor_label")) %>% 
+  mutate(eikelmuis_spoor_hist = ifelse(!is.na(eikelmuis_spoor_id_3), 
+                                       paste(eikelmuis_spoor_id_1, 
+                                             eikelmuis_spoor_id_2, 
+                                             eikelmuis_spoor_id_3, 
+                                             sep = ";"),
+                                       paste(eikelmuis_spoor_id_1, 
+                                             eikelmuis_spoor_id_2, 
+                                             sep = ";"))) %>% 
+  select(-eikelmuis_spoor_label1,
+         -eikelmuis_spoor_label2,
+         -eikelmuis_spoor_label3,
+         -eikelmuis_spoor_id_1, 
+         -eikelmuis_spoor_id_2, 
+         -eikelmuis_spoor_id_3) 
 
 nestkast_hist_controles_meervoudige_sporen <- nestkast_hist_controles %>% 
-  filter(is.na(eikelmuis_spoor_hist)) 
+  filter(is.na(eikelmuis_spoor_hist)) %>% 
+  select(-eikelmuis_spoor_hist, -opmerkingen_nestkast_hist) %>% 
+  left_join(mapping_table, by = c("eikelmuis_spoor_hist_int" = "spoor"))
 
-table(nestkast_hist_controles_meervoudige_sporen %>% 
-        filter(!eikelmuis_spoor_hist_int %in% mapping_table$spoor) %>% 
-        pull(eikelmuis_spoor_hist_int), useNA = "ifany")
+unmapped_meervoudige_sporen <- nestkast_hist_controles_meervoudige_sporen %>% 
+  filter(!eikelmuis_spoor_hist_int %in% mapping_table$spoor) 
 
-
-
-%>% 
-  mutate(eikelmuis_spoor_hist = case_when(
-    eikelmuis_spoor_hist_int %in% c("dierennest", "diernest", "nestdier", "nestdieren") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "dier (onbekend)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (onbekend)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("dierkeutel") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "dier (onbekend)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (onbekend)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("nestkeutel", "nestkeutels") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (onbekend)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (onbekend)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("nestkeutelsdieren", "diernestkeutels", "nestdierenkeutels") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (onbekend)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (onbekend)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "dier (onbekend)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("keutelsnestbegin", "nestbeginkeutels") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (begin)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (onbekend)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("dierkeutelsvraatsporen") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (onbekend)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (onbekend)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "vraatsporen"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("oudversnestkeutels", "oudversnestkeutel", "oudversnest,keutels") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (vers)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (oud)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (onbekend)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("vraatsporennestbegin") ~
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (begin)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "vraatsporen"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("vraatsporenkeutels") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (onbekend)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "vraatsporen"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("nestvraatsporen", "nestvraatresten", "nestvraatsporen", "nestvraatresten") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (onbekend)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "vraatsporen"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("oudversnestvraatsporen") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (oud)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (vers)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "vraatsporen"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("oudversnestoudeversekeutelsdieren") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (oud)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (vers)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (oud)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (vers)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "dier (onbekend)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("oudversnestoudeversekeutels", "oudversnest,oudeversekeutels") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (oud)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (vers)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (oud)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (vers)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("oudversnest") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (oud)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (vers)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("oudversnestdier", "oudversnestdieren") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (oud)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (vers)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "dier (onbekend)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("oudversnestbegin") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (begin)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("oudnestoudekeutels") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (oud)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (oud)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("oudversnestoudekeutels") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (oud)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (vers)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (oud)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("oudversnestdierenvraatsporen") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (oud)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (vers)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "dier (onbekend)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "vraatsporen"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("nestbeginvraatsporen", "oudnestbeginvraatsporen", "nestbeginvoedselvoorraad") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (begin)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "vraatsporen"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("nestbeginvraatrestenkeutels") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (begin)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "vraatsporen"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (onbekend)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("nestkeutelsvraatsporen") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (onbekend)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "vraatsporen"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (onbekend)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("oudeversekeutels") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (vers)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (oud)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("oudnestbeginoudekeutels", "oudversnestbegin,oudekeutels") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (begin)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (oud)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("oudnestbeginoudevraatrestenoudekeutels") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (begin)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "vraatsporen"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (oud)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("oudnestbeginversnest") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (begin)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (vers)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("oudnestoudeversekeutels") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (oud)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (vers)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (oud)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("oudnestversekeutels") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (oud)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (vers)"],
-            sep = ";"),
-    eikelmuis_spoor_hist_int %in% c("oudversnestdierenoudeversekeutels") ~ 
-      paste(dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (oud)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "nest (vers)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "dier (onbekend)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (vers)"],
-            dd_eikelmuis_spoor$eikelmuis_spoor_id[dd_eikelmuis_spoor$eikelmuis_spoor_label == "keutel (oud)"],
-            sep = ";"),
-    TRUE ~ NA_character_))
-
-table(nestkast_hist_controles$eikelmuis_aanwezig_hist_int, 
-      nestkast_hist_controles$eikelmuis_aanwezig_hist,
-      useNA = "ifany")
-
-table(nestkast_hist_controles$eikelmuis_spoor_hist_int, 
-      useNA = "ifany")
-
-table(nestkast_hist_controles_enkelvoudig_spoor$eikelmuis_spoor_hist_int, 
-      useNA = "ifany")
-
-table(nestkast_hist_controles_meervoudige_sporen$eikelmuis_spoor_hist_int, 
-      useNA = "ifany")
-
-eikelmuis_spoor_hist_missing <- nestkast_hist_controles_meervoudige_sporen %>% 
-  filter(is.na(eikelmuis_spoor_hist))
-
-if(nrow(eikelmuis_spoor_hist_missing) >= nrow(nestkast_hist_controles_meervoudige_sporen) * 0.01){
-  table(eikelmuis_spoor_hist_missing$eikelmuis_spoor_hist_int, useNA = "ifany")
+if(nrow(unmapped_meervoudige_sporen) >= nrow(nestkast_hist_controles_meervoudige_sporen) * 0.01){
+  table(unmapped_meervoudige_sporen$eikelmuis_spoor_hist_int, useNA = "ifany")
   stop("eikelmuis_spoor_hist_missing exceeds 1%")
 }
 
