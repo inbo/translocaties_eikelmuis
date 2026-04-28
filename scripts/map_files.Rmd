@@ -1,0 +1,64 @@
+---
+title: "map_files"
+author: "Sander Devisscher"
+date: "2026-04-28"
+output: html_document
+---
+
+```{r libraries}
+library(sf)
+library(googledrive)
+library(tidyverse)
+```
+
+```{r auth}
+drive_auth(Sys.getenv("email"))
+
+google_drive_folder <- "1mK1_WzMRopk-2fyimhYt5zFfufApJL5t"
+```
+
+```{r Farys_b}
+Farys_b_raw <- read_csv("input/Farys_b.csv")
+
+export_fn <- paste0(tempdir(), "\\Farys_b_mapped.csv")
+
+Farys_b <- Farys_b_raw %>% 
+  st_as_sf(coords = c("X", "Y"),
+           crs = fistools::CRS_extracter("bel"),
+           remove = FALSE) %>% 
+  st_transform(4326) %>% 
+  mutate(huidige_lat = st_coordinates(.)[,2],
+         huidige_lng = st_coordinates(.)[,1],
+         huidige_coordinaten = paste(huidige_lat, huidige_lng, sep = ", ")) %>% 
+  as.data.frame() %>% 
+  mutate(`Huidige toponiem` = "Farysbosje",
+         `Nestkast label` = paste0("Farys_b-", title),
+         `Nestkast label` = gsub(pattern = "E",
+                                 replacement = "NK",
+                                 `Nestkast label`),
+         `Nestkast status` = "Terrein") %>% 
+  mutate(`Laatste datum en tijd` = format(strptime(timestamp, 
+                                                  "%Y/%m/%d %H:%M:%OS"), 
+                                          "%d-%m-%Y %H:%M:%S")) %>% 
+  select(`Nestkast label`, 
+         `Laatste datum en tijd`,
+         `Nestkast status`,
+         huidige_lat,
+         huidige_lng,
+         huidige_coordinaten,
+         `Huidige toponiem`) %>% 
+  write_csv2(export_fn)
+
+drive_put(export_fn,
+          path = as_id(google_drive_folder))
+```
+
+```{r test Farys_b spatial, eval=FALSE}
+library(leaflet)
+
+leaflet(Farys_b) %>% 
+  addTiles() %>% 
+  addCircles()
+```
+
+
