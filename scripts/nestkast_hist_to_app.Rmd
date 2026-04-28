@@ -1,0 +1,410 @@
+---
+title: "nestkast_hist_to_app"
+author: "Sander Devisscher"
+date: "2026-02-19"
+output: html_document
+---
+
+```{r libraries}
+library(sf)
+library(tidyverse)
+library(googlesheets4)
+library(googledrive)
+library(testthat)
+```
+
+```{r auth}
+gs4_auth(Sys.getenv("email"))
+drive_auth(Sys.getenv("email"))
+
+google_drive_folder <- "1mK1_WzMRopk-2fyimhYt5zFfufApJL5t"
+```
+
+```{r read raw data}
+nestkast_hist_raw <- read_sheet("16S2cMLTbuIQt8P3yyNshAx4bHUxC_8KNDKUQXmrGM8Q")
+```
+
+```{r read app data}
+dd_nestkast_type <- read_sheet("1_JZRcird23bYOfYZo0cz1M78gTGitJP83-7rAQaax5k",
+                               sheet = "dd_nestkast_type")
+
+dd_nestkast_status <- read_sheet("1_JZRcird23bYOfYZo0cz1M78gTGitJP83-7rAQaax5k",
+                                 sheet = "dd_nestkast_status")
+
+dd_eikelmuis_spoor <- read_sheet("1_JZRcird23bYOfYZo0cz1M78gTGitJP83-7rAQaax5k",
+                                 sheet = "dd_eikelmuis_spoor")
+```
+
+```{r mapping: prep}
+nestkast_hist <- nestkast_hist_raw %>% 
+  mutate(nestkast_label = as.character(nestkast_ID)) %>% 
+  rename(nestkast_type_beschrijving = ...2,
+         nestkast_opmerkingen = opmerkingen) %>% 
+  left_join(dd_nestkast_type, by = "nestkast_type_beschrijving")
+
+missing_nestkast_types <- nestkast_hist %>% 
+  filter(is.na(nestkast_type_label)) %>% 
+  distinct(nestkast_type_beschrijving)
+
+test_that("Check for missing nestkast types", {
+  
+  # Calculate the number of missing types
+  num_missing <- nrow(missing_nestkast_types)
+  
+  # Create a descriptive string of the missing types to display if the test fails
+  missing_list <- paste(missing_nestkast_types$nestkast_type_beschrijving, collapse = ", ")
+  
+  # The test: we expect num_missing to be 0
+  expect_equal(num_missing, 0, 
+               info = paste("Missing nestkast_type_beschrijving found:", missing_list, 
+                            "\n add these to the nestkast types view in the app and rerun"))
+})
+```
+
+```{r mapping: nestkasten}
+export_fn <- paste0(tempdir(), "\\nestkasten.csv")
+
+nestkasten <- nestkast_hist %>% 
+  select(nestkast_label, nestkast_type_id, nestkast_opmerkingen) %>% 
+  write_csv(export_fn)
+
+drive_put(export_fn,
+          as_id(google_drive_folder))
+```
+
+```{r mapping: hist_base}
+nestkast_hist_base_int <- nestkast_hist %>% 
+  select(nestkast_label, Lambert_x, Lambert_y) %>% 
+  st_as_sf(coords = c("Lambert_x", "Lambert_y"),
+           crs = fistools::CRS_extracter("bel")) %>% 
+  st_transform(fistools::CRS_extracter("wgs")) %>% 
+  mutate(nestkast_hist_lat = st_coordinates(.)[,2],
+         nestkast_hist_lng = st_coordinates(.)[,1],
+         nestkast_hist_coordinaten = paste(nestkast_hist_lat, nestkast_hist_lng, sep = ", "))
+
+nestkast_hist_base <- nestkast_hist_base_int %>% 
+  st_drop_geometry()
+```
+
+```{r test spatial, eval=FALSE}
+library(leaflet)
+
+leaflet() %>% 
+  addTiles() %>% 
+  addCircles(data = nestkast_hist_base_int)
+```
+
+```{r mapping: plaatsing}
+nestkast_hist_plaatsing <- nestkast_hist %>% 
+  mutate(ophangdatum = as.character(ophangdatum)) %>% 
+  select(nestkast_label, ophangdatum) %>% 
+  mutate(nestkast_hist_datumtijd = case_when(ophangdatum == "NULL" ~ NA,
+                                             ophangdatum == "zomer 2024" ~ "1-7-2024 00:00:00",
+                                             ophangdatum == "2-11/6/25" ~ "6-6-2025 00:00:00",
+                                             ophangdatum %in% c("1760313600", "1764720000") ~ as.character(format(as.POSIXct(as.numeric(ophangdatum), origin = "1970-01-01", tz = "UTC"), "%d-%m-%Y %H:%M:%S")),
+                                             TRUE ~ ophangdatum)) %>% 
+  filter(!is.na(nestkast_hist_datumtijd)) %>% 
+  mutate(eikelmuis_aanwezig_hist = FALSE) %>% 
+  mutate(nestkast_status = dd_nestkast_status$nestkast_status_id[dd_nestkast_status$nestkast_status_label == "Terrein"]) %>% 
+  left_join(nestkast_hist_base, by = "nestkast_label") %>% 
+  select(-ophangdatum)
+
+#table(nestkast_hist_plaatsing$ophangdatum, nestkast_hist_plaatsing$nestkast_hist_datumtijd, useNA = "ifany")
+```
+
+```{r mapping: controles enkelvoudig}
+# create mapping table enkelvoudige sporen
+knaagsporen <- c("vraatsporen?")
+nestmateriaal_onzeker <- c("nest?", "nest??", "nest???", "nest(begin)?", 
+                           "nestbegin?", "nestbegin???", "oud nestbegin?",  
+                           "oud nest???", "oud nest?", "oud??? + vers? nest",
+                           "oud + vers nestbegin?", "oud + vers nest???",
+                           "oud + vers nest?", "oud (+ vers???) nestbegin?",
+                           "oud (+ vers???) nest?", "oud (+ vers?) nest?",
+                           "oud (+ vers???) nest", "oud (+ vers?) nest",
+                           "oud (+ vers) nest?")
+nestmateriaal_zeker <- c("nest(begin)", "nestbegin", "oud nest", "nest", 
+                         "oud nestbegin + vers nest", "oud + vers nest")
+uitwerpselen <- c("keutel?", "keutel erop?", "keutels", "keutels erop?", 
+                  "oude keutels", "oude? keutels", "oude + verse keutels", 
+                  "oude (+ verse???) keutels")
+andere <- c("dier")
+
+mapping_table <- data.frame(
+  spoor = c(knaagsporen, nestmateriaal_onzeker, nestmateriaal_zeker, uitwerpselen, andere), # etc
+  eikelmuis_spoor_label = c(rep("knaagsporen", length(knaagsporen)), 
+                            rep("nestmateriaal (onzeker)", length(nestmateriaal_onzeker)),
+                            rep("nestmateriaal (zeker)", length(nestmateriaal_zeker)),
+                            rep("uitwerpselen", length(uitwerpselen)),
+                            rep("ander eikelmuis spoor", length(andere)))
+) %>% 
+  add_row(spoor = NA_character_,
+          eikelmuis_spoor_label = "afwezig") %>% 
+  left_join(dd_eikelmuis_spoor) %>% 
+  select(spoor, eikelmuis_spoor_hist = eikelmuis_spoor_id)
+
+nestkast_hist_controles <- nestkast_hist %>% 
+  select(nestkast_label, contains("controle")) %>% 
+  pivot_longer(cols = contains("controle"),
+               names_to = "names",
+               values_to = "values",
+               values_transform = as.character) %>% 
+  mutate(names = case_when(grepl("datum", names) ~ "nestkast_hist_datumtijd_int",
+                           grepl("resultaat", names) ~ "eikelmuis_aanwezig_hist_int",
+                           grepl("bijzonderheden", names) ~ "eikelmuis_spoor_hist_int",
+                           TRUE ~ names)) %>% 
+  pivot_wider(id_cols = nestkast_label,
+              names_from = "names",
+              values_from = "values",
+              values_fn = list) %>% 
+  unnest(cols = c(nestkast_hist_datumtijd_int, 
+                  eikelmuis_aanwezig_hist_int, 
+                  eikelmuis_spoor_hist_int)) %>% 
+  filter(!is.na(nestkast_hist_datumtijd_int) | 
+           !is.na(eikelmuis_aanwezig_hist_int)) %>% 
+  mutate(nestkast_hist_datumtijd = paste(format(as.Date(nestkast_hist_datumtijd_int, "%Y-%m-%d"), "%d-%m-%Y"), "00:00:00")) %>%
+  mutate(eikelmuis_aanwezig_hist = case_when(eikelmuis_aanwezig_hist_int %in% c("afwezig") ~ FALSE,
+                                             eikelmuis_aanwezig_hist_int %in% c("onzeker (eerder niet)", "mogelijk") ~ NA,
+                                             eikelmuis_aanwezig_hist_int %in% c("mogelijk", "waarschijnlijk", "zeker") ~ TRUE,
+                                             TRUE ~ NA)) %>% 
+  tidylog::left_join(mapping_table, by = c("eikelmuis_spoor_hist_int" = "spoor")) %>% 
+  mutate(opmerkingen_nestkast_hist = case_when(eikelmuis_spoor_hist == "9d5b34f1" ~ eikelmuis_spoor_hist_int,
+                                               TRUE ~ NA_character_))
+
+missing_eikelmuis_aanwezig_hist <- nestkast_hist_controles %>% 
+  filter(is.na(eikelmuis_aanwezig_hist) & !is.na(eikelmuis_aanwezig_hist_int))
+
+nestkast_hist_controles_enkelvoudig_spoor <- nestkast_hist_controles %>% 
+  filter(nchar(eikelmuis_spoor_hist) == 8) 
+
+```
+
+```{r FUN: create_sporen_mapping}
+create_sporen_mapping <- function(config_list) {
+  # Map over each element in the list to create individual data frames
+  list_of_dfs <- lapply(config_list, function(item) {
+    data.frame(
+      spoor = item$values,
+      eikelmuis_spoor_label1 = if(is.null(item$label1)) NA else item$label1,
+      eikelmuis_spoor_label2 = if(is.null(item$label2)) NA else item$label2,
+      eikelmuis_spoor_label3 = if(is.null(item$label3)) NA else item$label3,
+      stringsAsFactors = FALSE
+    )
+  })
+  
+  # Combine all small data frames into one big mapping table
+  do.call(rbind, list_of_dfs)
+}
+```
+
+```{r mapping: controles meervoudig}
+sporen_config <- list(
+  andere_uitwerpselen = list(
+    label1 = "ander eikelmuis spoor",
+    label2 = "uitwerpselen",
+    label3 = NA,
+    values = c("dier (+ keutel?)")
+  ),
+  ander_nestmateriaalZeker = list(
+    label1 = "ander eikelmuis spoor",
+    label2 = "nestmateriaal (zeker)",
+    label3 = NA,
+    values = c("dier + nest", "dier(en) + nest", 
+               "nest (+ dieren???)", "nest + dier", "nest + dier(en)", 
+               "dieren + nest", "nest + dieren", "oud + vers nest + dieren",
+               "oud + vers nest + dier(en)", "oud + vers nest + dier")
+  ),
+  andere_uitwerpselen_knaagsporen = list(
+    label1 = "ander eikelmuis spoor",
+    label2 = "uitwerpselen",
+    label3 = "knaagsporen",
+    values = c("dier + keutels + vraatsporen")
+  ),
+  andere_nestmateriaalZeker_uitwerpselen = list(
+    label1 = "ander eikelmuis spoor",
+    label2 = "uitwerpselen",
+    label3 = "nestmateriaal (zeker)",
+    values = c("dier + nest + keutels", "nest + dier(en) + keutels", 
+               "nest + dieren + keutels", "nest + keutels (+ dieren???)",
+               "oud + vers nest + oude + verse keutels + dier(en)",
+               "oud + vers nest + dier(en) + oude + verse keutels")
+  ),
+  andere_nestmateriaalZeker_knaagsporen = list(
+    label1 = "ander eikelmuis spoor",
+    label2 = "nestmateriaal (zeker)",
+    label3 = "knaagsporen",
+    values = c("oud + vers nest + dier(en) + vraatsporen")
+  ),
+  uitwerpselen_nestmateriaalZeker = list(
+    label1 = "uitwerpselen",
+    label2 = "nestmateriaal (zeker)",
+    label3 = NA,
+    values = c("keutels (+ nestbegin)", "keutels + nestbegin", 
+               "nest + keutel(s)", "nest + keutels", 
+               "oud nestbegin + oude keutels", "oud nest + oude keutels",
+               "oud nest + verse keutels", "oud nest + oude + verse keutels",
+               "oud + vers nest, oude + verse keutels", "nestbegin (+ keutels?)",
+               "oud + vers nest, oude (+ verse?) keutels",
+               "oud + vers nest, keutels???", "nestbegin + keutels",
+               "oud + vers nest + oude + verse keutels",
+               "oud + vers nest + oude (+ verse???) keutels",
+               "oud + vers nest + oude (+ verse?) keutels",
+               "oud + vers nest + keutels", "oud + vers nest + keutel"
+    )
+  ),
+  uitwerpselen_nestmateriaalOnzeker = list(
+    label1 = "uitwerpselen",
+    label2 = "nestmateriaal (onzeker)",
+    label3 = NA,
+    values = c("oud (+ vers???) nest + oude keutels", "nest? + keutels?",
+               "oud (+ vers???) nest + oude (+ verse???) keutels",
+               "oud (+ vers?) nestbegin, oude keutels", "nest??? keutels???",
+               "oud (+ vers?) nest, oude (+ verse?) keutels", "nest? + keutel?", 
+               "oud (+ vers?) nest + oude (+ verse?) keutels",
+               "oud (+ vers?) nest + keutels?", "oud (+ vers?) nest + keutels"
+    )
+  ),
+  andere_nestmateriaalOnzeker = list(
+    label1 = "ander eikelmuis spoor",
+    label2 = "nestmateriaal (onzeker)",
+    label3 = NA,
+    values = c("nest? (+ dieren???)", "oud (+ vers?) nest + dieren", 
+               "nestbegin? voedselvoorraad?")
+  ),
+  knaagsporen_nestmateriaalOnzeker = list(
+    label1 = "knaagsporen",
+    label2 = "nestmateriaal (onzeker)",
+    label3 = NA,
+    values = c("vraatsporen??? + nestbegin???", "oud nestbegin? vraatsporen?", 
+               "oud + vers nest? vraatsporen?", "nestbegin??? vraatsporen???",
+               "oud (+ vers?) nest + vraatsporen?", "nestbegin? vraatsporen?",
+               "nest? vraatsporen?", "nest? vraatresten?")
+  ),
+  knaagsporen_uitwerpselen = list(
+    label1 = "knaagsporen",
+    label2 = "uitwerpselen",
+    label3 = NA,
+    values = c("vraatsporen + keutels")
+  ),
+  knaagsporen_nestmateriaalOnzeker_uitwerpselen = list(
+    label1 = "knaagsporen",
+    label2 = "nestmateriaal (onzeker)",
+    label3 = "uitwerpselen",
+    values = c("oud nestbegin? oude vraatresten? oude keutels???",
+               "nestbegin? vraatresten? keutels???", 
+               "nestbegin? + vraatresten? + keutels?",
+               "nest??? + keutels??? + vraatsporen???",
+               "nest? keutels??? vraatsporen???")
+  )
+)
+
+mapping_table <- create_sporen_mapping(sporen_config) %>% 
+  mutate(opmerkingen_nestkast_hist = case_when(eikelmuis_spoor_label1 == "ander eikelmuis spoor" ~ spoor,
+                                               TRUE ~ NA_character_)) %>% 
+  left_join(dd_eikelmuis_spoor %>% 
+              select(eikelmuis_spoor_id_1 = eikelmuis_spoor_id,
+                     eikelmuis_spoor_label), 
+            by = c("eikelmuis_spoor_label1" = "eikelmuis_spoor_label")) %>% 
+  left_join(dd_eikelmuis_spoor %>% 
+              select(eikelmuis_spoor_id_2 = eikelmuis_spoor_id,
+                     eikelmuis_spoor_label), 
+            by = c("eikelmuis_spoor_label2" = "eikelmuis_spoor_label")) %>% 
+  left_join(dd_eikelmuis_spoor %>% 
+              select(eikelmuis_spoor_id_3 = eikelmuis_spoor_id,
+                     eikelmuis_spoor_label), 
+            by = c("eikelmuis_spoor_label3" = "eikelmuis_spoor_label")) %>% 
+  mutate(eikelmuis_spoor_hist = ifelse(!is.na(eikelmuis_spoor_id_3), 
+                                       paste(eikelmuis_spoor_id_1, 
+                                             eikelmuis_spoor_id_2, 
+                                             eikelmuis_spoor_id_3, 
+                                             sep = ";"),
+                                       paste(eikelmuis_spoor_id_1, 
+                                             eikelmuis_spoor_id_2, 
+                                             sep = ";"))) %>% 
+  select(-eikelmuis_spoor_label1,
+         -eikelmuis_spoor_label2,
+         -eikelmuis_spoor_label3,
+         -eikelmuis_spoor_id_1, 
+         -eikelmuis_spoor_id_2, 
+         -eikelmuis_spoor_id_3) 
+
+nestkast_hist_controles_meervoudige_sporen <- nestkast_hist_controles %>% 
+  filter(is.na(eikelmuis_spoor_hist)) %>% 
+  select(-eikelmuis_spoor_hist, -opmerkingen_nestkast_hist) %>% 
+  left_join(mapping_table, by = c("eikelmuis_spoor_hist_int" = "spoor"))
+
+unmapped_meervoudige_sporen <- nestkast_hist_controles_meervoudige_sporen %>% 
+  filter(!eikelmuis_spoor_hist_int %in% mapping_table$spoor) 
+
+if(nrow(unmapped_meervoudige_sporen) >= nrow(nestkast_hist_controles_meervoudige_sporen) * 0.01){
+  table(unmapped_meervoudige_sporen$eikelmuis_spoor_hist_int, useNA = "ifany")
+  stop("eikelmuis_spoor_hist_missing exceeds 1%")
+}
+
+nestkast_hist_controles_finaal <- rbind(nestkast_hist_controles_enkelvoudig_spoor, 
+                                        nestkast_hist_controles_meervoudige_sporen) %>% 
+  mutate(nestkast_status = dd_nestkast_status$nestkast_status_id[dd_nestkast_status$nestkast_status_label == "Terrein"]) %>% 
+  left_join(nestkast_hist_base, by = "nestkast_label") %>% 
+  select(-nestkast_hist_datumtijd_int,
+         -eikelmuis_aanwezig_hist_int,
+         -eikelmuis_spoor_hist_int)
+
+test_that("Check nestkast_hist_controles_finaal has not de/in-flated", {
+  expect_equal(nrow(nestkast_hist_controles_finaal), 
+               nrow(nestkast_hist_controles))
+})
+
+fistools::colcompare(nestkast_hist_controles_finaal, nestkast_hist_plaatsing)
+```
+
+```{r mapping: opruim}
+nestkast_hist_opruim <- nestkast_hist %>% 
+  select(nestkast_label, verwijderdatum) %>% 
+  filter(!is.na(verwijderdatum)) %>% 
+  mutate(nestkast_hist_datumtijd = paste(format(as.Date(verwijderdatum, "%Y-%m-%d"), "%d-%m-%Y"), "00:00:00")) %>% 
+  mutate(nestkast_status = dd_nestkast_status$nestkast_status_id[dd_nestkast_status$nestkast_status_label == "Stock"]) %>% 
+  mutate(eikelmuis_aanwezig_hist = FALSE) %>% 
+  mutate(nestkast_hist_lat = "00.000000",
+         nestkast_hist_lng = "00.000000",
+         nestkast_hist_coordinaten = paste(nestkast_hist_lat, nestkast_hist_lng, sep = ", ")) %>% 
+  mutate(nestkast_hist_lat = as.numeric(nestkast_hist_lat),
+         nestkast_hist_lng = as.numeric(nestkast_hist_lng)) %>% 
+  select(-verwijderdatum)
+
+fistools::colcompare(nestkast_hist_opruim, nestkast_hist_plaatsing)
+```
+
+```{r combine & export}
+export_fn <- paste0(tempdir(), "\\nestkast_hist_combined.csv")
+
+nestkast_hist_combined <- bind_rows(nestkast_hist_plaatsing,
+                                    nestkast_hist_controles_finaal,
+                                    nestkast_hist_opruim) %>% 
+  write_csv(export_fn) 
+
+drive_put(export_fn,
+          path = as_id(google_drive_folder))
+```
+
+```{r select 1 random nestkast to test upload}
+selectie <- sample(nestkasten$nestkast_label, size = 1)[[1]]
+
+export_fn <- paste0(tempdir(), "\\test_nestkast.csv")
+
+test_nestkast <- nestkasten %>% 
+  filter(nestkast_label == selectie) %>% 
+  write_csv(export_fn)
+
+drive_put(export_fn,
+          path = as_id(google_drive_folder))
+
+export_fn <- paste0(tempdir(), "\\test_nestkast_hist.csv")
+
+test_nestkast_hist <- nestkast_hist_combined %>% 
+  filter(nestkast_label == selectie) %>% 
+  write_csv(export_fn)
+
+drive_put(export_fn,
+          path = as_id(google_drive_folder))
+```
+
