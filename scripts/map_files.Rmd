@@ -47,7 +47,7 @@ Farys_b <- Farys_b_raw %>%
          huidige_lng,
          huidige_coordinaten,
          `Huidige toponiem`) %>% 
-  write_csv2(export_fn)
+  write_delim(export_fn, delim = ";")
 
 drive_put(export_fn,
           path = as_id(google_drive_folder))
