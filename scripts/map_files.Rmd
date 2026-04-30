@@ -61,4 +61,38 @@ leaflet(Farys_b) %>%
   addCircles()
 ```
 
+```{r FR0_2026b}
+FR0_2026b_raw <- read_csv("input/FR0_2026b.csv")
+
+export_fn <- paste0(tempdir(), "\\FR0_2026b_mapped.csv")
+
+FR0_2026b <- FR0_2026b_raw %>% 
+  st_as_sf(coords = c("X", "Y"),
+           crs = fistools::CRS_extracter("bel"),
+           remove = FALSE) %>% 
+  st_transform(4326) %>% 
+  mutate(huidige_lat = st_coordinates(.)[,2],
+         huidige_lng = st_coordinates(.)[,1],
+         huidige_coordinaten = paste(huidige_lat, huidige_lng, sep = ", ")) %>% 
+  as.data.frame() %>% 
+  mutate(`Nestkast label` = paste0("FR0-NK", fid),
+         `Nestkast status` = "Terrein",
+         `Nestkast type` = recode_values(title,
+                                         "Eikelmuis-hout" ~ "nestkast (thermowood)",
+                                         "Eikelmuis-houtbeton" ~ "nestkast (houtbeton)"))  %>% 
+  mutate(`Laatste datum en tijd` = format(strptime(timestamp, 
+                                                  "%Y/%m/%d %H:%M:%OS"), 
+                                          "%d-%m-%Y %H:%M:%S")) %>% 
+  select(`Nestkast label`, 
+         `Laatste datum en tijd`,
+         `Nestkast status`,
+         `Nestkast type`,
+         huidige_lat,
+         huidige_lng,
+         huidige_coordinaten) %>% 
+  write_delim(export_fn, delim = ";")
+
+drive_put(export_fn,
+          path = as_id(google_drive_folder))
+```
 
